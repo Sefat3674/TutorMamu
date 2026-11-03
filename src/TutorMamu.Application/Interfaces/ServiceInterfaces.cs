@@ -4,11 +4,7 @@ using TutorMamu.Domain.Enums;
 
 namespace TutorMamu.Application.Interfaces;
 
-public interface IAuthService
-{
-    Task<AuthResponseDto> RegisterAsync(RegisterDto dto);
-    Task<AuthResponseDto> LoginAsync(LoginDto dto);
-}
+
 
 public interface ITokenService
 {

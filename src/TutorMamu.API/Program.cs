@@ -9,6 +9,9 @@ using TutorMamu.Application;
 using TutorMamu.Application.Common;
 using TutorMamu.Infrastructure;
 using TutorMamu.Infrastructure.Data;
+using TutorMamu.Infrastructure.Settings;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +45,9 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+
+builder.Services.Configure<SmsSettings>(
+    builder.Configuration.GetSection("SmsSettings"));
 
 // ---- CORS (Angular dev server by default) ----
 var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();

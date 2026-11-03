@@ -11,23 +11,41 @@ namespace TutorMamu.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        string connectionString)
     {
-        services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
+        // Database
+        services.AddDbContext<ApplicationDbContext>(
+            options => options.UseSqlServer(connectionString));
 
+        // Identity
         services.AddIdentityCore<ApplicationUser>(options =>
-            {
-                options.Password.RequiredLength = 8;
-                options.Password.RequireNonAlphanumeric = false;
-                options.User.RequireUniqueEmail = true;
-            })
-            .AddRoles<ApplicationRole>()
-            .AddEntityFrameworkStores<ApplicationDbContext>();
+        {
+            options.Password.RequiredLength = 8;
+            options.Password.RequireNonAlphanumeric = false;
+            options.User.RequireUniqueEmail = true;
+        })
+        .AddRoles<ApplicationRole>()
+        .AddEntityFrameworkStores<ApplicationDbContext>();
 
-        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        // Repository
+        services.AddScoped(
+            typeof(IRepository<>),
+            typeof(Repository<>));
+
+        // Authentication
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<INotificationService, LoggingNotificationService>();
+
+        // Notifications
+        services.AddScoped<
+            INotificationService,
+            LoggingNotificationService>();
+
+        // SSL Wireless SMS
+        services.AddHttpClient<ISmsService, SmsService>();
+
         return services;
     }
 }
