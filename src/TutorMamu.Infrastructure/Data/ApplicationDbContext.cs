@@ -16,6 +16,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
 
+    public DbSet<OtpVerification> OtpVerifications { get; set; }
+
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -81,5 +85,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             e.HasIndex(x => x.Key).IsUnique();
             e.Property(x => x.Key).HasMaxLength(100).IsRequired();
         });
-    }
+
+        builder.Entity<RefreshToken>()
+        .HasOne(x => x.User)
+        .WithMany()
+        .HasForeignKey(x => x.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
+        }
 }
