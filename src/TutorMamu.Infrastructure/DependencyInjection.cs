@@ -37,6 +37,7 @@ public static class DependencyInjection
         // Authentication
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserService, UserService>();
 
         // Notifications
         services.AddScoped<

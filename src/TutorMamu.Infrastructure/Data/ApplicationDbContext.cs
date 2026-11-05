@@ -20,9 +20,41 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
 
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
+    public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<UserProfile>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            e.HasIndex(x => x.UserId).IsUnique();
+
+            e.Property(x => x.Gender)
+                .HasMaxLength(20);
+
+            e.Property(x => x.Division)
+                .HasMaxLength(100);
+
+            e.Property(x => x.District)
+                .HasMaxLength(100);
+
+            e.Property(x => x.Area)
+                .HasMaxLength(100);
+
+            e.Property(x => x.AddressDetails)
+                .HasMaxLength(300);
+
+            e.Property(x => x.ProfileImageUrl)
+                .HasMaxLength(500);
+
+            e.HasOne(x => x.User)
+                .WithOne()
+                .HasForeignKey<UserProfile>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<Topic>(e =>
         {
@@ -92,4 +124,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
         .HasForeignKey(x => x.UserId)
         .OnDelete(DeleteBehavior.Cascade);
         }
+
+        
 }

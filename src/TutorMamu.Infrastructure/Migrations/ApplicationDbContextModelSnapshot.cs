@@ -179,7 +179,7 @@ namespace TutorMamu.Infrastructure.Migrations
                     b.HasIndex("Key")
                         .IsUnique();
 
-                    b.ToTable("ApplicationSettings");
+                    b.ToTable("ApplicationSettings", (string)null);
                 });
 
             modelBuilder.Entity("TutorMamu.Domain.Entities.ApplicationUser", b =>
@@ -316,7 +316,7 @@ namespace TutorMamu.Infrastructure.Migrations
 
                     b.HasIndex("TutorProfileId", "StartTime");
 
-                    b.ToTable("Bookings");
+                    b.ToTable("Bookings", (string)null);
                 });
 
             modelBuilder.Entity("TutorMamu.Domain.Entities.Payment", b =>
@@ -354,7 +354,7 @@ namespace TutorMamu.Infrastructure.Migrations
 
                     b.HasIndex("BookingId");
 
-                    b.ToTable("Payments");
+                    b.ToTable("Payments", (string)null);
                 });
 
             modelBuilder.Entity("TutorMamu.Domain.Entities.Review", b =>
@@ -383,7 +383,7 @@ namespace TutorMamu.Infrastructure.Migrations
                     b.HasIndex("BookingId")
                         .IsUnique();
 
-                    b.ToTable("Reviews");
+                    b.ToTable("Reviews", (string)null);
                 });
 
             modelBuilder.Entity("TutorMamu.Domain.Entities.Topic", b =>
@@ -424,7 +424,7 @@ namespace TutorMamu.Infrastructure.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Topics");
+                    b.ToTable("Topics", (string)null);
                 });
 
             modelBuilder.Entity("TutorMamu.Domain.Entities.TutorProfile", b =>
@@ -479,7 +479,7 @@ namespace TutorMamu.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("TutorProfiles");
+                    b.ToTable("TutorProfiles", (string)null);
                 });
 
             modelBuilder.Entity("TutorMamu.Domain.Entities.TutorTopic", b =>
@@ -507,7 +507,7 @@ namespace TutorMamu.Infrastructure.Migrations
                     b.HasIndex("TutorProfileId", "TopicId")
                         .IsUnique();
 
-                    b.ToTable("TutorTopics");
+                    b.ToTable("TutorTopics", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

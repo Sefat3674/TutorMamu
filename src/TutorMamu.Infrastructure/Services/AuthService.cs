@@ -70,6 +70,15 @@ public class AuthService(
                 string.Join("; ", roleResult.Errors.Select(e => e.Description)));
         }
 
+        // Create separate user profile
+        db.UserProfiles.Add(new UserProfile
+        {
+            UserId = user.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        // Create tutor-specific profile
         if (role == Roles.Teacher)
         {
             await profiles.AddAsync(new TutorProfile
@@ -79,6 +88,8 @@ public class AuthService(
 
             await profiles.SaveChangesAsync();
         }
+
+        await db.SaveChangesAsync();
 
         return await CreateAuthenticatedResponseAsync(
             user, await users.GetRolesAsync(user));
@@ -349,14 +360,25 @@ public class AuthService(
     // =========================================
 
     public async Task<AuthenticatedUserDto> GetCurrentUserAsync(
-        Guid userId)
+    Guid userId)
     {
         var user = await users.FindByIdAsync(userId.ToString());
 
         if (user == null)
             throw new AppException("User not found.", 404);
 
+        var profile = await db.UserProfiles
+            .FirstOrDefaultAsync(x => x.UserId == userId);
+
         var roles = await users.GetRolesAsync(user);
+
+        var isProfileComplete = profile != null
+            && !string.IsNullOrWhiteSpace(user.FullName)
+            && profile.DateOfBirth.HasValue
+            && !string.IsNullOrWhiteSpace(profile.Gender)
+            && !string.IsNullOrWhiteSpace(profile.Division)
+            && !string.IsNullOrWhiteSpace(profile.District)
+            && !string.IsNullOrWhiteSpace(profile.Area);
 
         return new AuthenticatedUserDto
         {
@@ -366,8 +388,8 @@ public class AuthService(
             Roles = roles.ToList(),
             ActiveRole = roles.FirstOrDefault() ?? string.Empty,
             PhoneVerified = user.PhoneNumberConfirmed,
-            IsProfileComplete = false,
-            ProfileImage = null
+            IsProfileComplete = isProfileComplete,
+            ProfileImage = profile?.ProfileImageUrl
         };
     }
 
