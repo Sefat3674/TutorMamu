@@ -97,10 +97,12 @@ public class TutorService : ITutorService
     // 3. UPDATE MY PROFILE
     // =====================================================
 
+
     public async Task<TutorProfileResponse?> UpdateProfileAsync(
         Guid userId,
         UpdateTutorProfileRequest request)
     {
+        // 1. Find existing tracked profile
         var profile = await _context.TutorProfiles
             .Include(x => x.User)
             .Include(x => x.TutorTopics)
@@ -109,28 +111,104 @@ public class TutorService : ITutorService
         if (profile == null)
             return null;
 
-        var topicIds = request.TopicIds.Distinct().ToList();
+        // 2. Validate request
+        if (request.HourlyRate <= 0)
+            throw new ArgumentException(
+                "Hourly rate must be greater than zero.");
 
-        await ValidateTopicsAsync(topicIds);
+        if (string.IsNullOrWhiteSpace(request.Headline))
+            throw new ArgumentException(
+                "Headline is required.");
 
+        if (string.IsNullOrWhiteSpace(request.Bio))
+            throw new ArgumentException(
+                "Bio is required.");
+
+        // 3. Get unique topic IDs
+        var topicIds = (request.TopicIds ?? new List<Guid>())
+            .Distinct()
+            .ToHashSet();
+
+        // 4. Validate selected topics
+        await ValidateTopicsAsync(topicIds.ToList());
+
+        // 5. Update profile
         profile.Headline = request.Headline.Trim();
         profile.Bio = request.Bio.Trim();
         profile.HourlyRate = request.HourlyRate;
         profile.Area = request.Area?.Trim();
         profile.TeachesOnline = request.TeachesOnline;
+        profile.UpdatedAt = DateTime.UtcNow;
 
-        _context.TutorTopics.RemoveRange(profile.TutorTopics);
+        // IMPORTANT:
+        // Profile is already tracked by EF Core.
+        // Do not call _context.TutorProfiles.Update(profile).
 
-        profile.TutorTopics = topicIds.Select(id => new TutorTopic
+        // 6. Get existing topic relationships
+        var existingTopics = profile.TutorTopics.ToList();
+
+        var existingTopicIds = existingTopics
+            .Select(x => x.TopicId)
+            .ToHashSet();
+
+        // 7. Remove only unwanted topics
+        foreach (var existing in existingTopics)
         {
-            TutorProfileId = profile.Id,
-            TopicId = id
-        }).ToList();
+            if (!topicIds.Contains(existing.TopicId))
+            {
+                profile.TutorTopics.Remove(existing);
 
-        await _context.SaveChangesAsync();
+                _context.TutorTopics.Remove(existing);
+            }
+        }
 
+        // 8. Add only new topics
+        foreach (var topicId in topicIds)
+        {
+            if (!existingTopicIds.Contains(topicId))
+            {
+                var newTopic = new TutorTopic
+                {
+                    TutorProfileId = profile.Id,
+                    TopicId = topicId
+                };
+
+                profile.TutorTopics.Add(newTopic);
+            }
+        }
+
+        // 9. Save changes
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            var failedEntities = ex.Entries
+                .Select(entry => new
+                {
+                    Entity = entry.Metadata.ClrType.Name,
+                    State = entry.State.ToString()
+                })
+                .ToList();
+
+            // Log the actual entity responsible for the exception.
+            Console.WriteLine(
+                "Tutor profile update concurrency exception:");
+
+            foreach (var entry in failedEntities)
+            {
+                Console.WriteLine(
+                    $"Entity: {entry.Entity}, State: {entry.State}");
+            }
+
+            throw;
+        }
+
+        // 10. Return updated profile
         return MapProfile(profile);
     }
+
 
     // =====================================================
     // 4. UPLOAD VERIFICATION DOCUMENT
@@ -502,18 +580,24 @@ public class TutorService : ITutorService
     // PRIVATE HELPERS
     // =====================================================
 
+
     private async Task ValidateTopicsAsync(List<Guid> topicIds)
     {
-        if (!topicIds.Any())
+        if (topicIds.Count == 0)
             return;
 
         var count = await _context.Topics
-            .CountAsync(x => topicIds.Contains(x.Id));
+            .CountAsync(x =>
+                topicIds.Contains(x.Id) &&
+                x.IsActive);
 
         if (count != topicIds.Count)
+        {
             throw new ArgumentException(
-                "One or more selected topics are invalid.");
+                "One or more selected topics are invalid or inactive.");
+        }
     }
+
 
     private static string GetGroupStatus(
         List<TutorDocument> documents,

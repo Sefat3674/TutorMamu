@@ -32,19 +32,19 @@ public class TutorService : ITutorProfileService
 
 
     public async Task<TutorProfileDto> UpdateMineAsync(
-        Guid userId,
-        UpdateTutorProfileDto dto)
+    Guid userId,
+    UpdateTutorProfileDto dto)
     {
         // 1. Validate hourly rate
         if (dto.HourlyRate <= 0)
             throw new AppException(
                 "Hourly rate must be greater than zero.");
 
-        // 2. Get existing profile
+        // 2. Get existing tracked profile
         var profile = await FindByUserAsync(userId);
 
         // 3. Validate requested topics
-        var wantedTopicIds = dto.TopicIds
+        var wantedTopicIds = (dto.TopicIds ?? new List<Guid>())
             .Distinct()
             .ToHashSet();
 
@@ -63,7 +63,9 @@ public class TutorService : ITutorProfileService
         profile.TeachesOnline = dto.TeachesOnline;
         profile.UpdatedAt = DateTime.UtcNow;
 
-        _profiles.Update(profile);
+        // IMPORTANT:
+        // Do not call _profiles.Update(profile).
+        // The entity is already tracked by EF Core.
 
         // 5. Get existing topic relationships
         var existingTopics = await _tutorTopics.ListAsync(
@@ -73,7 +75,7 @@ public class TutorService : ITutorProfileService
             .Select(t => t.TopicId)
             .ToHashSet();
 
-        // 6. Remove only unwanted topics
+        // 6. Remove unwanted topics
         foreach (var existing in existingTopics)
         {
             if (!wantedTopicIds.Contains(existing.TopicId))
@@ -82,7 +84,7 @@ public class TutorService : ITutorProfileService
             }
         }
 
-        // 7. Add only new topics
+        // 7. Add new topics
         foreach (var topicId in wantedTopicIds)
         {
             if (!existingTopicIds.Contains(topicId))
@@ -95,7 +97,7 @@ public class TutorService : ITutorProfileService
             }
         }
 
-        // 8. Save all changes
+        // 8. Save changes
         await _profiles.SaveChangesAsync();
 
         // 9. Return updated profile
