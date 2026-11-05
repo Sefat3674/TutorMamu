@@ -13,6 +13,7 @@ namespace TutorMamu.Infrastructure.Services;
 public class UserService(
     UserManager<ApplicationUser> users,
     ApplicationDbContext db,
+    RoleManager<ApplicationRole> roleManager,
     IWebHostEnvironment environment) : IUserService
 {
     private const long MaxImageSize = 5 * 1024 * 1024;
@@ -293,4 +294,171 @@ public class UserService(
             File.Delete(oldPath);
         }
     }
+
+    // GET: api/users/me/roles
+    public async Task<UserRolesResponseDto> GetRolesAsync(Guid userId)
+    {
+        var user = await GetUserAsync(userId);
+
+        var userRoles = await users.GetRolesAsync(user);
+
+        var result = new UserRolesResponseDto
+        {
+            ActiveRole = user.ActiveRole,
+            Roles = new List<RoleResponseDto>()
+        };
+
+        var availableRoles = new[] { "Student", "Teacher", "Admin" };
+
+        foreach (var role in availableRoles)
+        {
+            var enabled = userRoles.Contains(
+                role,
+                StringComparer.OrdinalIgnoreCase);
+
+            string? verificationStatus = null;
+
+            if (role == "Teacher" && enabled)
+            {
+                var tutorProfile = await db.Set<TutorProfile>()
+                    .FirstOrDefaultAsync(x => x.UserId == userId);
+
+                verificationStatus = tutorProfile?
+                    .VerificationStatus.ToString()
+                    .ToUpperInvariant();
+            }
+
+            result.Roles.Add(new RoleResponseDto
+            {
+                Role = role.ToUpperInvariant(),
+                Enabled = enabled,
+                VerificationStatus = verificationStatus
+            });
+        }
+
+        return result;
+    }
+
+    // POST: api/users/me/roles
+    public async Task<object> ActivateRoleAsync(
+        Guid userId,
+        ActivateRoleRequestDto dto)
+    {
+        var user = await GetUserAsync(userId);
+
+        var requestedRole = NormalizeRole(dto.Role);
+
+        if (requestedRole != "Teacher")
+        {
+            throw new InvalidOperationException(
+                "Only the Teacher role can be activated through this API.");
+        }
+
+        if (!await roleManager.RoleExistsAsync(requestedRole))
+        {
+            throw new InvalidOperationException(
+                "Teacher role does not exist. Please seed the role first.");
+        }
+
+        var existingRoles = await users.GetRolesAsync(user);
+
+        if (existingRoles.Contains(
+            requestedRole,
+            StringComparer.OrdinalIgnoreCase))
+        {
+            return new
+            {
+                role = "TEACHER",
+                profileStatus = "ALREADY_ACTIVATED"
+            };
+        }
+
+        await using var transaction =
+            await db.Database.BeginTransactionAsync();
+
+        var identityResult = await users.AddToRoleAsync(
+            user,
+            requestedRole);
+
+        if (!identityResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join("; ",
+                    identityResult.Errors.Select(x => x.Description)));
+        }
+
+        var tutorProfile = await db.Set<TutorProfile>()
+            .FirstOrDefaultAsync(x => x.UserId == userId);
+
+        if (tutorProfile == null)
+        {
+            tutorProfile = new TutorProfile
+            {
+                UserId = userId,
+                Headline = string.Empty,
+                Bio = string.Empty,
+                HourlyRate = 0,
+                TeachesOnline = true,
+                VerificationStatus =
+                    Domain.Enums.VerificationStatus.Pending
+            };
+
+            db.Set<TutorProfile>().Add(tutorProfile);
+
+            await db.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+
+        return new
+        {
+            role = "TEACHER",
+            profileStatus = "INCOMPLETE"
+        };
+    }
+
+    // PUT: api/users/me/active-role
+    public async Task<string> SwitchActiveRoleAsync(
+        Guid userId,
+        SwitchActiveRoleRequestDto dto)
+    {
+        var user = await GetUserAsync(userId);
+
+        var requestedRole = NormalizeRole(dto.Role);
+
+        var existingRoles = await users.GetRolesAsync(user);
+
+        if (!existingRoles.Contains(
+            requestedRole,
+            StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"You do not have the {requestedRole} role activated.");
+        }
+
+        user.ActiveRole = requestedRole.ToUpperInvariant();
+
+        var result = await users.UpdateAsync(user);
+
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join("; ",
+                    result.Errors.Select(x => x.Description)));
+        }
+
+        return user.ActiveRole;
+    }
+
+    private static string NormalizeRole(string? role)
+    {
+        return role?.Trim().ToUpperInvariant() switch
+        {
+            "STUDENT" => "Student",
+            "TEACHER" => "Teacher",
+            _ => throw new InvalidOperationException(
+                "Invalid role. Allowed roles: STUDENT, TEACHER.")
+        };
+    }
+
 }

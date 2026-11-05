@@ -19,4 +19,13 @@ public interface IUserService
     Task RequestAccountDeletionAsync(Guid userId);
 
     Task<List<UserSessionDto>> GetSessionsAsync(Guid userId);
+    Task<UserRolesResponseDto> GetRolesAsync(Guid userId);
+
+    Task<object> ActivateRoleAsync(
+        Guid userId,
+        ActivateRoleRequestDto dto);
+
+    Task<string> SwitchActiveRoleAsync(
+        Guid userId,
+        SwitchActiveRoleRequestDto dto);
 }
