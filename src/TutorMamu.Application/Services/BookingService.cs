@@ -55,7 +55,7 @@ public class BookingService : IBookingService
 
         var tutor = await _tutors.GetByIdAsync(dto.TutorProfileId)
             ?? throw new AppException("Tutor not found.", 404);
-        if (tutor.VerificationStatus != VerificationStatus.Approved)
+        if (tutor.VerificationsStatus != VerificationsStatus.Approved)
             throw new AppException("This tutor is not available for booking.");
         if (tutor.UserId == studentId)
             throw new AppException("You cannot book your own class.");

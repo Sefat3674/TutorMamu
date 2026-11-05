@@ -324,7 +324,7 @@ public class UserService(
                     .FirstOrDefaultAsync(x => x.UserId == userId);
 
                 verificationStatus = tutorProfile?
-                    .VerificationStatus.ToString()
+                    .VerificationsStatus.ToString()
                     .ToUpperInvariant();
             }
 
@@ -399,8 +399,8 @@ public class UserService(
                 Bio = string.Empty,
                 HourlyRate = 0,
                 TeachesOnline = true,
-                VerificationStatus =
-                    Domain.Enums.VerificationStatus.Pending
+                VerificationsStatus =
+                    Domain.Enums.VerificationsStatus.Pending
             };
 
             db.Set<TutorProfile>().Add(tutorProfile);

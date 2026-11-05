@@ -43,6 +43,10 @@ public static class DependencyInjection
         services.AddScoped<
             INotificationService,
             LoggingNotificationService>();
+        // Tutor Management API
+        services.AddScoped<
+            ITutorService,
+            TutorMamu.Infrastructure.Services.TutorService>();
 
         // SSL Wireless SMS
         services.AddHttpClient<ISmsService, SmsService>();

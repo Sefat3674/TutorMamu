@@ -21,6 +21,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<TutorDocument> TutorDocuments => Set<TutorDocument>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -56,6 +57,51 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<TutorDocument>(e =>
+        {
+            e.HasOne(x => x.TutorProfile)
+                .WithMany(x => x.Documents)
+                .HasForeignKey(x => x.TutorProfileId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.Property(x => x.DocumentType)
+                .HasConversion<string>()
+                .HasMaxLength(30);
+
+            e.Property(x => x.DocumentSide)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            e.Property(x => x.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            e.Property(x => x.OriginalFileName)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            e.Property(x => x.StoredFileName)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            e.Property(x => x.StoragePath)
+                .HasMaxLength(1000)
+                .IsRequired();
+
+            e.Property(x => x.ContentType)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            e.Property(x => x.RejectionReason)
+                .HasMaxLength(500);
+
+            e.HasIndex(x => new
+            {
+                x.TutorProfileId,
+                x.DocumentType,
+                x.DocumentSide
+            });
+        });
         builder.Entity<Topic>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(150).IsRequired();
@@ -73,7 +119,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, Applicati
             e.Property(x => x.AverageRating).HasPrecision(3, 2);
             e.Property(x => x.Headline).HasMaxLength(200);
             e.Property(x => x.Bio).HasMaxLength(2000);
-            e.Property(x => x.VerificationStatus).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.VerificationsStatus)
+            .HasColumnName("VerificationStatus")
+            .HasConversion<string>()
+            .HasMaxLength(20);
         });
 
         builder.Entity<TutorTopic>(e =>

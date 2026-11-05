@@ -20,10 +20,19 @@ public interface ITopicService
 public interface ITutorProfileService
 {
     Task<TutorProfileDto> GetMineAsync(Guid userId);
-    Task<TutorProfileDto> UpdateMineAsync(Guid userId, UpdateTutorProfileDto dto);
+
+    Task<TutorProfileDto> UpdateMineAsync(
+        Guid userId,
+        UpdateTutorProfileDto dto);
+
     Task<List<TutorProfileDto>> SearchAsync(Guid? topicId);
-    Task<List<TutorProfileDto>> ListByStatusAsync(VerificationStatus status);
-    Task<TutorProfileDto> SetVerificationAsync(Guid profileId, VerificationStatus status);
+
+    Task<List<TutorProfileDto>> ListByStatusAsync(
+        VerificationsStatus status);
+
+    Task<TutorProfileDto> SetVerificationAsync(
+        Guid profileId,
+        VerificationsStatus status);
 }
 
 public interface IBookingService
