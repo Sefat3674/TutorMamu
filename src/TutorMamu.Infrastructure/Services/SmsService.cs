@@ -1,10 +1,9 @@
-﻿
-using System.Net.Http.Json;
-using System.Text.Json;
-using Microsoft.Extensions.Options;
+﻿using System.Text.Json;
+using System.Net.Http;
 using TutorMamu.Application.Common;
 using TutorMamu.Application.Interfaces;
 using TutorMamu.Infrastructure.Settings;
+using Microsoft.Extensions.Options;
 
 namespace TutorMamu.Infrastructure.Services;
 
@@ -26,94 +25,81 @@ public class SmsService : ISmsService
         string message,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_settings.ApiToken))
-            throw new AppException("SSL Wireless API token is missing.");
+        if (string.IsNullOrWhiteSpace(_settings.ApiKey))
+            throw new AppException("Alpha SMS API key is missing.");
 
-        if (string.IsNullOrWhiteSpace(_settings.SenderId))
-            throw new AppException("SSL Wireless Sender ID is missing.");
+        if (string.IsNullOrWhiteSpace(message))
+            throw new AppException("SMS message cannot be empty.");
 
         var mobile = NormalizePhoneNumber(phoneNumber);
 
-        var csmsId = Guid.NewGuid().ToString("N")[..20];
-
-        var payload = new
+        var parameters = new Dictionary<string, string>
         {
-            api_token = _settings.ApiToken,
-            sid = _settings.SenderId,
-            msisdn = mobile,
-            sms = message,
-            csms_id = csmsId
+            ["api_key"] = _settings.ApiKey,
+            ["msg"] = message,
+            ["to"] = mobile
         };
 
-        using var response = await _httpClient.PostAsJsonAsync(
-            $"{_settings.BaseUrl.TrimEnd('/')}/send-sms",
-            payload,
+        // Sender ID is optional. Send it only when configured.
+        if (!string.IsNullOrWhiteSpace(_settings.SenderId))
+        {
+            parameters["sender_id"] = _settings.SenderId;
+        }
+
+        using var content = new FormUrlEncodedContent(parameters);
+
+        using var response = await _httpClient.PostAsync(
+            $"{_settings.BaseUrl.TrimEnd('/')}/sendsms",
+            content,
             cancellationToken);
 
         var responseBody = await response.Content.ReadAsStringAsync(
             cancellationToken);
 
-        // Check HTTP response
         if (!response.IsSuccessStatusCode)
         {
             throw new AppException(
-                $"SSL Wireless HTTP error: {(int)response.StatusCode}. " +
+                $"Alpha SMS HTTP error: {(int)response.StatusCode}. " +
                 $"Response: {responseBody}");
         }
 
-        // Parse gateway response
-        JsonDocument document;
-
         try
         {
-            document = JsonDocument.Parse(responseBody);
+            using var document = JsonDocument.Parse(responseBody);
+
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty("error", out var errorElement))
+            {
+                throw new AppException(
+                    "Alpha SMS returned an invalid response.");
+            }
+
+            var errorCode = errorElement.ValueKind switch
+            {
+                JsonValueKind.Number => errorElement.GetInt32(),
+                JsonValueKind.String when int.TryParse(
+                    errorElement.GetString(), out var value) => value,
+                _ => -1
+            };
+
+            if (errorCode != 0)
+            {
+                var gatewayMessage =
+                    root.TryGetProperty("msg", out var msgElement)
+                        ? msgElement.ToString()
+                        : "Unknown SMS gateway error.";
+
+                throw new AppException(
+                    $"Alpha SMS rejected the request. " +
+                    $"Error: {errorCode}. Reason: {gatewayMessage}");
+            }
         }
         catch (JsonException)
         {
             throw new AppException(
-                $"Invalid SSL Wireless response: {responseBody}");
+                "Alpha SMS returned an invalid JSON response.");
         }
-
-        using (document)
-        {
-            var root = document.RootElement;
-
-            var status = GetJsonValue(root, "status");
-
-            if (!string.Equals(
-                    status,
-                    "SUCCESS",
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                var statusCode = GetJsonValue(root, "status_code")
-                                 ?? GetJsonValue(root, "code")
-                                 ?? "Unknown";
-
-                var errorMessage = GetJsonValue(root, "error_message")
-                                   ?? GetJsonValue(root, "message")
-                                   ?? "Unknown SMS gateway error";
-
-                throw new AppException(
-                    $"SSL Wireless rejected SMS. " +
-                    $"Code: {statusCode}. Reason: {errorMessage}");
-            }
-        }
-    }
-
-    private static string? GetJsonValue(
-        JsonElement element,
-        string propertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var property))
-            return null;
-
-        return property.ValueKind switch
-        {
-            JsonValueKind.String => property.GetString(),
-            JsonValueKind.Number => property.ToString(),
-            JsonValueKind.Null => null,
-            _ => property.ToString()
-        };
     }
 
     private static string NormalizePhoneNumber(string phoneNumber)
